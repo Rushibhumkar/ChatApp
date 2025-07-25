@@ -21,6 +21,7 @@ import notifee from '@notifee/react-native';
 import {registerDevice} from './src/api/notification/notificationFunc';
 import {myConsole} from './src/utils/myConsole';
 import {sizes} from './src/const';
+import CustomText from './src/components/CustomText';
 
 const queryClient = new QueryClient();
 const Stack = createNativeStackNavigator();
@@ -172,12 +173,19 @@ const App = () => {
 
   if (isLoading) {
     return (
-      <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
+      <View
+        style={{
+          flex: 1,
+          justifyContent: 'center',
+          alignItems: 'center',
+          backgroundColor: '#fff',
+        }}>
         <StatusBar barStyle={'dark-content'} backgroundColor={'#fff'} />
-        <Image
+        {/* <Image
           source={require('./src/assets/images/splashscreen.png')}
           style={{width: sizes.width, height: sizes.height + 54}}
-        />
+        /> */}
+        <CustomText>ChatApp</CustomText>
       </View>
     );
   }
