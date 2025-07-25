@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "971034220438",
+    "project_id": "fameely-2349a",
+    "storage_bucket": "fameely-2349a.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:971034220438:android:2fcde6773c596467b96fb7",
+        "android_client_info": {
+          "package_name": "com.fameely_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBBWvKnE22cGTvmq8qfNXl39cnAiKQeQ6w"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
