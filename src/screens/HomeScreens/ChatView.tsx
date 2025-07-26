@@ -1,86 +1,78 @@
 import React, {useState, useEffect, useCallback, useRef} from 'react';
 import {
   View,
-  FlatList,
-  TouchableOpacity,
-  Image,
   KeyboardAvoidingView,
   Platform,
   Keyboard,
   Alert,
+  FlatList,
 } from 'react-native';
 import MainContainer from '../../components/MainContainer';
 import {useGetMyData} from '../../api/profile/profileFunc';
-import io, {Socket} from 'socket.io-client';
-import {API_AXIOS, SOCKET_SERVER_URL} from '../../api/axiosInstance';
-import {chatScreenStyles, myStyle} from '../../sharedStyles';
-import {getData} from '../../hooks/useAsyncStorage';
-import {attachmentList} from '../../const/data';
-import CustomModal from '../../components/CustomModal';
-import CustomText from '../../components/CustomText';
+import {chatScreenStyles} from '../../sharedStyles';
 import {useFocusEffect} from '@react-navigation/native';
-import {showErrorToast, showSuccessToast} from '../../utils/toastModalFunction';
+import {MsgDataType} from '../../utils/typescriptInterfaces';
+import CustomErrorMessage from '../../components/CustomErrorMessage';
 import EmptyChatPlaceholder from './components/EmptyChatPlaceholder';
 import MessageInputBar from './components/MessageInputBar';
 import FilePreviewModal from './components/FilePreviewModal';
-import CustomErrorMessage from '../../components/CustomErrorMessage';
-import {pickFileHelper} from './components/pickFileHelper';
-import {getTextWithLength} from '../../utils/commonFunction';
-import {deleteMessagesByIds} from '../../api/chats/chatFunc';
 import CustomForwardModal from './components/CustomForwardModal';
-import Clipboard from '@react-native-clipboard/clipboard';
-import {MsgDataType} from '../../utils/typescriptInterfaces';
 import MessageComponent from './components/MessageComponent';
+import AttachmentOptionsModal from './components/AttachmentOptionsModal';
+import ForwardedMessageEmitter from './components/ForwardedMessageEmitter';
+import useSocket from '../../hooks/useSocket';
+import {
+  fetchMessages as fetchMessagesUtil,
+  handleDeleteMessages as handleDeleteMessagesUtil,
+  copyToClipboard,
+  sendMessagePayload,
+} from '../../utils/chatUtils';
+import {getTextWithLength} from '../../utils/commonFunction';
 
 const ChatView = ({navigation, route}: any) => {
-  const {data} = route.params;
-  const {forwardedMessages, forwardedToUserId} = route.params || {};
+  const {data, forwardedMessages, forwardedToUserId} = route.params || {};
   const {data: myData} = useGetMyData();
   const [message, setMessage] = useState('');
-  const [messages, setMessages] = useState<Array<any>>([]);
+  const [messages, setMessages] = useState<MsgDataType[]>([]);
   const [attachmentsPopup, setAttachmentsPopup] = useState(false);
-  const [socket, setSocket] = useState<Socket>();
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [imageViewModalVisible, setImageViewModalVisible] = useState(false);
   const [file, setFile] = useState<any>(null);
   const [fetchError, setFetchError] = useState<string | null>(null);
-  const [selectedMessages, setSelectedMessages] = useState<Array<MsgDataType>>(
-    [],
-  );
+  const [selectedMessages, setSelectedMessages] = useState<MsgDataType[]>([]);
+  const [forwardModal, setForwardModal] = useState(false);
+  const [page, setPage] = useState(1);
+  const [isFetching, setIsFetching] = useState(false);
 
-  const [forwardModal, setForwardModal] = useState<boolean>(false);
-  if (forwardedMessages && forwardedToUserId && socket) {
-    forwardedMessages.forEach((msg: any) => {
-      const forwardMsg: MsgDataType = {
-        sender: senderId,
-        receiver: forwardedToUserId,
-        text: msg.text,
-        ...(msg.attachments?.length ? {attachments: msg.attachments} : {}),
-      };
-      socket.emit('sendMessage', forwardMsg);
-    });
-    showSuccessToast({description: 'Message forwarded successfully!'});
-  }
+  const senderId = myData?.data?._id;
+  const receiverId = data?._id;
+  const flatListRef = useRef(null);
+
+  const socket = useSocket({
+    senderId,
+    onMessageReceived: (msg: MsgDataType) => {
+      setMessages(prev => [msg, ...prev]);
+    },
+  });
 
   useFocusEffect(
     useCallback(() => {
       if (messages.length > 0) {
-        const lastReceivedMessage = messages.find(
+        const lastReceivedMessage: any = messages.find(
           msg => msg.sender !== senderId,
         );
-        // myConsole('lastReceivedMessage', lastReceivedMessage);
         if (lastReceivedMessage && socket) {
-          socket.emit('markSeenMessage', lastReceivedMessage._id);
+          socket.emit('markSeenMessage', lastReceivedMessage?._id);
         }
       }
     }, [messages, socket]),
   );
+
   useEffect(() => {
     const keyboardDidShowListener = Keyboard.addListener(
       'keyboardDidShow',
       event => {
         setKeyboardHeight(event.endCoordinates.height);
-        // console.log('Keyboard Height:', event.endCoordinates.height);
       },
     );
     const keyboardDidHideListener = Keyboard.addListener(
@@ -95,162 +87,52 @@ const ChatView = ({navigation, route}: any) => {
     };
   }, []);
 
-  const senderId = myData?.data?._id;
-  const receiverId = data?._id;
   useEffect(() => {
     fetchMessages();
-    socketSetup();
-    return () => {
-      if (socket) socket.disconnect();
-      console.log('socket is disconnected');
-    };
   }, []);
 
-  const flatListRef = useRef(null);
-
-  const socketSetup = async () => {
-    const newSocket = io(SOCKET_SERVER_URL, {
-      transports: ['websocket'],
-      query: {userId: senderId},
+  const fetchMessages = (nextPage = 1) =>
+    fetchMessagesUtil({
+      receiverId,
+      page: nextPage,
+      isFetching,
+      setMessages,
+      setFetchError,
+      setPage,
+      setIsFetching,
     });
 
-    setSocket(newSocket);
-
-    newSocket.on('connect', () => {
-      console.log('Connected to socket server');
-    });
-
-    const token = await getData('authToken');
-    newSocket.emit('register', senderId, token);
-
-    newSocket.on('getMessage', (newMessage: any) => {
-      setMessages((prevMessages: any) => [newMessage, ...prevMessages]);
-    });
-
-    newSocket.emit('markSeenMessage', messages[0]?._id);
-
-    newSocket.on('error', (newMessage: any) => {
-      console.log({event: 'error', message: newMessage});
-    });
-    newSocket.on('register', (newMessage: any) => {
-      console.log({event: 'register', message: newMessage});
-    });
-  };
-
-  const [page, setPage] = useState(1);
-  const [isFetching, setIsFetching] = useState(false);
-
-  const fetchMessages = async (nextPage = 1) => {
-    if (isFetching) return;
-    setIsFetching(true);
-
-    try {
-      const response = await API_AXIOS.get(
-        `${SOCKET_SERVER_URL}/api/chat/${receiverId}?limit=20&page=${nextPage}`,
-      );
-      const newMessages = response.data.data.messages ?? [];
-      if (nextPage === 1) {
-        setMessages(newMessages);
-        setFetchError(null);
-      } else {
-        setMessages(prevMessages => [...prevMessages, ...newMessages]);
-      }
-      setPage(nextPage);
-    } catch (error: any) {
-      if (error?.response?.status === 429) {
-        console.error('Rate limit exceeded:', error);
-        setFetchError(
-          'You are sending too many requests. Please wait a moment and try again.',
-        );
-      } else {
-        console.error('Failed to fetch messages:', error);
-        setFetchError('Failed to load messages. Please try again.');
-      }
-    } finally {
-      setIsFetching(false);
-    }
-  };
-
-  const sendMessage = (): void => {
+  const sendMessage = () => {
     if (!message.trim()) return;
-    // myConsole('sldfjldksf', file);
-    const newMessage: MsgDataType = {
-      receiver: receiverId,
-      text: message,
-      sender: senderId,
-      ...(file?.attachments && file.attachments.length > 0
-        ? {attachments: file.attachments}
-        : {}),
-    };
-
-    if (socket) {
-      socket.emit('sendMessage', newMessage);
-    }
+    const newMessage = sendMessagePayload({
+      message,
+      file,
+      senderId,
+      receiverId,
+    });
+    if (socket) socket.emit('sendMessage', newMessage);
     setMessage('');
     setFile(null);
     setImageViewModalVisible(false);
   };
 
-  const pickFile = async () => {
-    pickFileHelper({
-      onStartUpload: () => {
-        setAttachmentsPopup(false);
-        setImageViewModalVisible(true);
+  const handleDeleteMessages = () =>
+    Alert.alert('Confirm Delete', 'Do you want to delete selected messages?', [
+      {text: 'Cancel', style: 'cancel'},
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: () =>
+          handleDeleteMessagesUtil(selectedMessages, setSelectedMessages, () =>
+            fetchMessages(1),
+          ),
       },
-      onSuccess: fileData => {
-        setFile(fileData);
-      },
-    });
-  };
-
-  const handleDeleteMessages = () => {
-    Alert.alert(
-      'Confirm Delete',
-      'Do you want to delete selected messages?',
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Delete',
-          onPress: async () => {
-            try {
-              await deleteMessagesByIds(
-                selectedMessages.map((msg: any) => msg?._id),
-              );
-
-              setSelectedMessages([]);
-              fetchMessages(1);
-              showSuccessToast({
-                description: 'Message(s) are deleted successfully!',
-              });
-            } catch (err) {
-              showErrorToast({
-                description: 'Failed to delete messages',
-              });
-            }
-          },
-          style: 'destructive',
-        },
-      ],
-      {cancelable: true},
-    );
-  };
-
-  const copyMessageToClipboard = () => {
-    console.log('skdfld');
-    if (selectedMessages.length === 1) {
-      Clipboard.setString(selectedMessages[0]?.text || '');
-      showSuccessToast({description: 'Copied to clipboard!'});
-    }
-  };
+    ]);
 
   const userFullName = `${data?.receiver?.firstName || data?.firstName || ''} ${
     data?.receiver?.lastName || data?.lastName || ''
   }`;
-  // myConsole('selectedMessages', selectedMessages);
-  // myConsole('messages', messages);
+
   return (
     <MainContainer
       title={
@@ -276,20 +158,23 @@ const ChatView = ({navigation, route}: any) => {
                 ? [
                     {
                       imageSource: require('../../assets/animatedIcons/copyAni.png'),
-                      onPress: copyMessageToClipboard,
+                      onPress: () =>
+                        copyToClipboard(selectedMessages[0]?.text || ''),
                       size: 22,
                     },
                   ]
                 : []),
-              // {
-              //   imageSource: require('../../assets/animatedIcons/forwardAni.png'),
-              //   onPress: () => setForwardModal(true),
-              //   size: 22,
-              // },
             ]
           : undefined
       }
       isBack>
+      <ForwardedMessageEmitter
+        forwardedMessages={forwardedMessages}
+        forwardedToUserId={forwardedToUserId}
+        senderId={senderId}
+        socket={socket}
+      />
+
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={
@@ -314,32 +199,26 @@ const ChatView = ({navigation, route}: any) => {
             ref={flatListRef}
             data={messages}
             inverted
-            keyExtractor={item => item?._id ?? 'defaultKey'}
+            keyExtractor={(item: any) => item?._id ?? 'defaultKey'}
             contentContainerStyle={[
               chatScreenStyles.chatArea,
               {paddingBottom: keyboardHeight || 20},
             ]}
             keyboardShouldPersistTaps="handled"
-            renderItem={({item}) =>
-              item ? (
-                <MessageComponent
-                  data={item}
-                  senderId={senderId}
-                  selectedMessages={selectedMessages}
-                  onToggleSelect={(msg: any) => {
-                    setSelectedMessages(prev =>
-                      prev.some((m: any) => m._id === msg._id)
-                        ? prev.filter((m: any) => m._id !== msg._id)
-                        : [...prev, msg],
-                    );
-                  }}
-                />
-              ) : (
-                <View>
-                  <CustomText>No message</CustomText>
-                </View>
-              )
-            }
+            renderItem={({item}) => (
+              <MessageComponent
+                data={item}
+                senderId={senderId}
+                selectedMessages={selectedMessages}
+                onToggleSelect={(msg: any) => {
+                  setSelectedMessages(prev =>
+                    prev.some((m: any) => m._id === msg._id)
+                      ? prev.filter((m: any) => m._id !== msg._id)
+                      : [...prev, msg],
+                  );
+                }}
+              />
+            )}
             ListFooterComponent={
               <View
                 style={{height: keyboardHeight ? keyboardHeight + 20 : 20}}
@@ -349,6 +228,7 @@ const ChatView = ({navigation, route}: any) => {
             onEndReachedThreshold={0.8}
           />
         )}
+
         {!fetchError && (
           <MessageInputBar
             message={message}
@@ -375,32 +255,24 @@ const ChatView = ({navigation, route}: any) => {
           selectedMessages={selectedMessages}
         />
 
-        <CustomModal
+        <AttachmentOptionsModal
           visible={attachmentsPopup}
           onClose={() => setAttachmentsPopup(false)}
-          containerStyle={chatScreenStyles.attachmentContStyle}
-          customBgStyle={{
-            justifyContent: 'flex-end',
-          }}>
-          <View style={myStyle.rowAround}>
-            {attachmentList.map((item, index) => (
-              <TouchableOpacity
-                key={index}
-                style={chatScreenStyles.attachmentItem}
-                onPress={() => {
-                  if (item.label === 'Gallery') pickFile();
-                }}>
-                <Image
-                  source={item.icon}
-                  style={chatScreenStyles.attachmentIcon}
-                />
-                <CustomText style={chatScreenStyles.attachmentText}>
-                  {item.label}
-                </CustomText>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </CustomModal>
+          onPickFile={async () => {
+            const {pickFileHelper} = await import(
+              './components/pickFileHelper'
+            );
+            pickFileHelper({
+              onStartUpload: () => {
+                setAttachmentsPopup(false);
+                setImageViewModalVisible(true);
+              },
+              onSuccess: fileData => {
+                setFile(fileData);
+              },
+            });
+          }}
+        />
       </KeyboardAvoidingView>
     </MainContainer>
   );
