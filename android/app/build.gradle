@@ -114,6 +114,7 @@ android {
 
 dependencies {
     // The version of react-native is set by the React Native Gradle Plugin
+    implementation project(':react-native-sqlite-storage')
     implementation("com.facebook.react:react-android")
     implementation project(':react-native-contacts')
     implementation platform('com.google.firebase:firebase-bom:33.16.0')

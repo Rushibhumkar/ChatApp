@@ -135,6 +135,11 @@ const MessageComponent = ({
 
             {/* Time and Ticks on media */}
             <View style={styles.attachmentTickTime}>
+              {data?.isSynced === false && (
+                <CustomText style={{color: 'lightgray', fontSize: 10}}>
+                  Sending...
+                </CustomText>
+              )}
               <CustomText style={{color: '#fff', fontSize: 10}}>
                 {formatTime24Hour(data.createdAt)}
               </CustomText>
@@ -361,7 +366,13 @@ const MessageComponent = ({
             }>
             {data.text}
           </CustomText>
+
           <View style={{flexDirection: 'row', alignItems: 'flex-end', gap: 4}}>
+            {data?.isSynced === false && (
+              <CustomText style={{fontSize: 10, color: 'gray'}}>
+                Sending...
+              </CustomText>
+            )}
             <CustomText
               style={
                 data.sender === senderId
@@ -473,6 +484,12 @@ const styles = StyleSheet.create({
     gap: 6,
     marginTop: 4,
   },
+  sendingText: {
+    fontSize: 10,
+    color: 'gray',
+    fontStyle: 'italic',
+  },
+
   textWithTimestamp: {
     flexDirection: 'row', // Align text and time in the same row
     gap: 4,

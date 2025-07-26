@@ -1,5 +1,5 @@
 {
-  "name": "chatapp",
+  "name": "kinmarvel",
   "version": "0.0.1",
   "private": true,
   "scripts": {
@@ -51,6 +51,7 @@
     "react-native-safe-area-context": "^5.4.1",
     "react-native-screens": "^4.11.1",
     "react-native-share": "^12.0.11",
+    "react-native-sqlite-storage": "^6.0.1",
     "react-native-step-indicator": "^1.0.3",
     "react-native-svg": "^15.12.0",
     "react-native-video": "^6.14.1",

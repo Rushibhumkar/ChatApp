@@ -1,8 +1,12 @@
 import {API_AXIOS, SOCKET_SERVER_URL} from '../api/axiosInstance';
 import Clipboard from '@react-native-clipboard/clipboard';
 import {MsgDataType} from './typescriptInterfaces';
-import {deleteMessagesByIds} from '../api/chats/chatFunc';
+import {deleteMessagesByIds as deleteFromServer} from '../api/chats/chatFunc';
 import {showSuccessToast, showErrorToast} from './toastModalFunction';
+import {
+  insertMessage,
+  deleteMessagesByIds as deleteFromLocalDB,
+} from '../services/MessageService';
 
 export const fetchMessages = async ({
   receiverId,
@@ -28,7 +32,12 @@ export const fetchMessages = async ({
     const response = await API_AXIOS.get(
       `${SOCKET_SERVER_URL}/api/chat/${receiverId}?limit=20&page=${page}`,
     );
-    const newMessages = response.data?.data?.messages ?? [];
+    const newMessages: MsgDataType[] = response.data?.data?.messages ?? [];
+
+    // Store in local SQLite DB
+    for (const msg of newMessages) {
+      await insertMessage(msg);
+    }
 
     if (page === 1) {
       setMessages(newMessages);
@@ -64,10 +73,13 @@ export const sendMessagePayload = ({
   receiverId: string;
 }): MsgDataType => {
   return {
+    _id: Date.now().toString(), // Temporary local ID
     sender: senderId,
     receiver: receiverId,
     text: message,
-    ...(file?.attachments?.length ? {attachments: file.attachments} : {}),
+    attachments: file?.attachments || [],
+    createdAt: new Date().toISOString(),
+    isSynced: false,
   };
 };
 
@@ -82,11 +94,13 @@ export const handleDeleteMessages = async (
   onRefresh: () => void,
 ) => {
   try {
-    await deleteMessagesByIds(selectedMessages.map((msg: any) => msg?._id));
+    const ids = selectedMessages.map(msg => msg?._id);
+    await deleteFromServer(ids); // server
+    await deleteFromLocalDB(ids); // local
     setSelectedMessages([]);
     onRefresh();
     showSuccessToast({
-      description: 'Message(s) are deleted successfully!',
+      description: 'Message(s) deleted successfully!',
     });
   } catch (err) {
     showErrorToast({
