@@ -1,15 +1,16 @@
 import React from 'react';
 import {createNativeStackNavigator} from '@react-navigation/native-stack';
-import BottomTabs from './BottomTabs';
-import CommonStack from './CommonStack';
+import {homeRoute} from '../screens/AuthScreens/routeName';
+import ChatList from '../screens/HomeScreens/ChatList';
+import ChatView from '../screens/HomeScreens/ChatView';
 
 const Stack = createNativeStackNavigator();
 
 const RootNavigator = () => {
   return (
     <Stack.Navigator screenOptions={{headerShown: false}}>
-      <Stack.Screen name="BottomTabs" component={BottomTabs} />
-      <Stack.Screen name="CommonStack" component={CommonStack} />
+      <Stack.Screen name={homeRoute.ChatList} component={ChatList} />
+      <Stack.Screen name={homeRoute.ChatView} component={ChatView} />
     </Stack.Navigator>
   );
 };

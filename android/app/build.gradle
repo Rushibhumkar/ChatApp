@@ -78,7 +78,7 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace "com.kinmarvel"
+    namespace "com.chatapp"
     defaultConfig {
         applicationId "com.fameely_app"
         minSdkVersion rootProject.ext.minSdkVersion

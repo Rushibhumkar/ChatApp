@@ -1,4 +1,4 @@
-package com.kinmarvel
+package com.chatapp
 
 import com.facebook.react.ReactActivity
 import com.facebook.react.ReactActivityDelegate

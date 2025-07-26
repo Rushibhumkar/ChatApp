@@ -6,9 +6,9 @@ export const rupeeSymbol = '₹';
 
 export const attachmentList = [
   {label: 'Gallery', icon: require('../assets/icons/gallery.png')},
-  {label: 'Camera', icon: require('../assets/icons/camera.png')},
-  {label: 'Contact', icon: require('../assets/icons/user.png')},
-  {label: 'Location', icon: require('../assets/icons/location.png')},
+  // {label: 'Camera', icon: require('../assets/icons/camera.png')},
+  // {label: 'Contact', icon: require('../assets/icons/user.png')},
+  // {label: 'Location', icon: require('../assets/icons/location.png')},
 ];
 export const threeDotsList = [
   {label: 'View Details', value: 'viewDetails', isFree: true},

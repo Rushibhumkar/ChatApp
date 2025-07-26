@@ -9,10 +9,9 @@ import {
   Image,
 } from 'react-native';
 import MainContainer from '../../components/MainContainer';
-import {chatRoute} from '../AuthScreens/routeName';
+import {homeRoute} from '../AuthScreens/routeName';
 import CustomAvatar from '../../components/CustomAvatar';
 import {color} from '../../const/color';
-import {useGetCombinedFollowData} from '../../api/follow/followFunc';
 import CustomErrorMessage from '../../components/CustomErrorMessage';
 import LoadingCompo from '../../components/LoadingCompo/LoadingCompo';
 import {io, Socket} from 'socket.io-client';
@@ -65,13 +64,6 @@ const ChatsList = ({navigation}: any) => {
   };
 
   const {
-    data: combinedData,
-    isLoading,
-    isError,
-    refetch,
-  } = useGetCombinedFollowData(searchValue);
-
-  const {
     data: recentChats,
     isLoading: recentChatsLoad,
     isError: recentChatsErr,
@@ -80,7 +72,7 @@ const ChatsList = ({navigation}: any) => {
 
   const onRefresh = () => {
     setRefreshing(true);
-    refetch();
+    recentChatsRefetch();
     recentChatsRefetch();
     setTimeout(() => setRefreshing(false), 1000);
   };
@@ -89,23 +81,13 @@ const ChatsList = ({navigation}: any) => {
     <MainContainer
       title="Chats"
       // removeFlexProp={true}
-      bgColor={'#fff'}
-      showRightIcon={[
-        ...(recentChats?.data?.chats?.length > 0
-          ? [
-              {
-                imageSource: require('../../assets/animatedIcons/search.png'),
-                onPress: () => navigation.navigate(chatRoute.ChatsSearchScreen),
-              },
-            ]
-          : []),
-      ]}>
+      bgColor={'#fff'}>
       {recentChatsLoad ? (
         <LoadingCompo minHeight={sizes.height / 1.1} />
-      ) : isError ? (
+      ) : recentChatsErr ? (
         <CustomErrorMessage
           message="Failed to fetch chats. Please try again."
-          onRetry={refetch}
+          onRetry={recentChatsRefetch}
         />
       ) : recentChats?.data?.chats?.length > 0 ? (
         <FlatList
@@ -124,7 +106,7 @@ const ChatsList = ({navigation}: any) => {
             <TouchableOpacity
               style={styles.chatItem}
               onPress={() =>
-                navigation.navigate(chatRoute.ChattingScreen, {
+                navigation.navigate(homeRoute.ChatView, {
                   data: item,
                   dsss: socket,
                 })
